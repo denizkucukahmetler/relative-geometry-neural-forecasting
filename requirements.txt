@@ -1,3 +1,4 @@
+# Tested with Python 3.12.12
 numpy==1.26.4
 scipy==1.13.1
 pandas==2.2.3
@@ -15,3 +16,4 @@ h5py==3.11.0
 pyarrow==16.1.0
 pillow==10.4.0
 imageio==2.34.2
+umap-learn==0.5.6

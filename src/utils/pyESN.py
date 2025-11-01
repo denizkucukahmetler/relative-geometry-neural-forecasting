@@ -35,7 +35,10 @@ class ESN():
                  input_scaling=None, teacher_forcing=True, feedback_scaling=None,
                  teacher_scaling=None, teacher_shift=None,
                  out_activation=identity, inverse_out_activation=identity,
-                 random_state=None, silent=True):
+                 random_state=None, silent=True,
+                 leaking_rate=1.0,           # α=1.0 reproduces your current behavior
+                 ridge_lambda=1e-4):         # expose ridge (stronger default than 1e-6)
+                
         """
         Args:
             n_inputs: nr of input dimensions
@@ -91,6 +94,9 @@ class ESN():
 
         self.teacher_forcing = teacher_forcing
         self.silent = silent
+        self.leaking_rate   = float(leaking_rate)
+        self.feedback_scaling = 1.0 if feedback_scaling is None else float(feedback_scaling)
+        self.ridge_lambda   = float(ridge_lambda)
         self.initweights()
 
     def initweights(self):
@@ -112,24 +118,23 @@ class ESN():
             self.n_reservoir, self.n_outputs) * 2 - 1
 
     def _update(self, state, input_pattern, output_pattern):
-        """performs one update step.
-
-        i.e., computes the next network state by applying the recurrent weights
-        to the last state & and feeding in the current input and output patterns
-        """
         if self.teacher_forcing:
             preactivation = (np.dot(self.W, state)
-                             + np.dot(self.W_in, input_pattern)
-                             + np.dot(self.W_feedb, output_pattern))
+                            + np.dot(self.W_in, input_pattern)
+                            + np.dot(self.W_feedb, self.feedback_scaling * output_pattern))
         else:
             preactivation = (np.dot(self.W, state)
-                             + np.dot(self.W_in, input_pattern))
-            
-        new_state = (np.tanh(preactivation)
-                + self.noise * (self.random_state_.rand(self.n_reservoir) - 0.5))
+                            + np.dot(self.W_in, input_pattern))
+
+        candidate = np.tanh(preactivation)
+        candidate += self.noise * (self.random_state_.rand(self.n_reservoir) - 0.5)
+
+        # NEW: leaky integration
+        new_state = (1.0 - self.leaking_rate) * state + self.leaking_rate * candidate
+
         self.reservoir_states.append(new_state)
-        
         return new_state
+
 
     def _scale_inputs(self, inputs):
         """for each input dimension j: multiplies by the j'th entry in the
@@ -158,110 +163,241 @@ class ESN():
             teacher_scaled = teacher_scaled / self.teacher_scaling
         return teacher_scaled
 
+
     def fit(self, inputs, outputs, inspect=False):
         """
-        Collect the network's reaction to training data, train readout weights.
+        Collect the network's reaction to training data, train read-out weights.
 
         Args:
-            inputs: array of dimensions (N_training_samples x n_inputs)
-            outputs: array of dimension (N_training_samples x n_outputs)
+            inputs : array (T × n_inputs)  *or*  list/tuple of arrays
+            outputs: array (T × n_outputs) *or*  list/tuple of arrays
             inspect: show a visualisation of the collected reservoir states
 
-        Returns:
-            the network's output on the training data, using the trained weights
+        Returns
+            Model output on the training data.  For many sequences a list
+            of arrays is returned (one per sequence); otherwise a single array.
         """
-        # transform any vectors of shape (x,) into vectors of shape (x,1):
-        if inputs.ndim < 2:
-            inputs = np.reshape(inputs, (len(inputs), -1))
-        if outputs.ndim < 2:
-            outputs = np.reshape(outputs, (len(outputs), -1))
-        # transform input and teacher signal:
-        inputs_scaled = self._scale_inputs(inputs)
-        teachers_scaled = self._scale_teacher(outputs)
+        # ────────────────────────────────────────────────────────────────
+        # 0) Normalise interface ─ turn lone arrays into one-element lists
+        # ────────────────────────────────────────────────────────────────
+        single_sequence = not isinstance(inputs, (list, tuple))
+        if single_sequence:
+            inputs, outputs = [inputs], [outputs]
 
-        if not self.silent:
-            print("harvesting states...")
-        # step the reservoir through the given input,output pairs:
-        states = np.zeros((inputs.shape[0], self.n_reservoir))
-        for n in range(1, inputs.shape[0]):
-            states[n, :] = self._update(states[n - 1], inputs_scaled[n, :],
-                                        teachers_scaled[n - 1, :])
+        if len(inputs) != len(outputs):
+            raise ValueError("inputs and outputs must have the same length")
 
-        # learn the weights, i.e. find the linear combination of collected
-        # network states that is closest to the target output
+        extended_blocks, teacher_blocks, pred_blocks = [], [], []
+
+        # ────────────────────────────────────────────────────────────────
+        # 1) Harvest states for *each* trajectory, starting from zero
+        # ────────────────────────────────────────────────────────────────
+        for in_raw, out_raw in zip(inputs, outputs):
+
+            # transform any vectors of shape (x,) into (x,1):
+            if in_raw.ndim < 2:
+                in_raw = np.reshape(in_raw, (len(in_raw), -1))
+            if out_raw.ndim < 2:
+                out_raw = np.reshape(out_raw, (len(out_raw), -1))
+
+            # scale
+            inputs_scaled   = self._scale_inputs(in_raw)
+            teachers_scaled = self._scale_teacher(out_raw)
+
+            #if not self.silent:
+            #    print("harvesting states...")
+            states = np.zeros((inputs_scaled.shape[0], self.n_reservoir))
+            for n in range(1, inputs_scaled.shape[0]):
+                states[n, :] = self._update(states[n - 1],
+                                            inputs_scaled[n, :],
+                                            teachers_scaled[n - 1, :])
+
+            # include the raw inputs:
+            #extended_states = np.hstack((states, inputs_scaled))
+            #extended_states = np.hstack((states[1:], inputs_scaled[1:]))   # <-- fix
+            n_eff = states.shape[0] - 1 # = len(states[1:]) 
+            #extended_states = np.hstack([states[1:], inputs_scaled[1:], np.ones((n_eff, 1))])
+            
+            # include the raw inputs + constant bias
+            n_eff = states.shape[0] - 1            # rows kept after t = 0
+            extended_states = np.hstack([
+                states[1:],               # reservoir states
+                inputs_scaled[1:],        # current inputs
+                np.ones((n_eff, 1))       # bias column
+            ])
+
+
+            extended_blocks.append(extended_states)
+            #teacher_blocks.append(teachers_scaled)
+            teacher_blocks.append(teachers_scaled[1:])                     # <-- fix
+
+            # remember last state/input/output of *this* trajectory
+            self.laststate  = states[-1, :].copy()
+            self.lastinput  = in_raw[-1, :].copy()
+            self.lastoutput = teachers_scaled[-1, :].copy()
+
+        # ────────────────────────────────────────────────────────────────
+        # 2) Stack all trajectories vertically → solve one linear system
+        # ────────────────────────────────────────────────────────────────
+        extended_states = np.vstack(extended_blocks)
+        teachers_scaled = np.vstack(teacher_blocks)
+
         if not self.silent:
             print("fitting...")
-        # we'll disregard the first few states:
-        transient = min(int(inputs.shape[1] / 10), 100)
-        # include the raw inputs:
-        extended_states = np.hstack((states, inputs_scaled))
-        # Solve for W_out:
+
+            
+        '''
+        transient = min(int(extended_states.shape[0] / 10), 100)
+
         self.W_out = np.dot(np.linalg.pinv(extended_states[transient:, :]),
-                            self.inverse_out_activation(teachers_scaled[transient:, :])).T
+                            self.inverse_out_activation(
+                                teachers_scaled[transient:, :])).T'''
+        X_blocks   = []
+        Y_blocks   = []
+        for X_seq, Y_seq in zip(extended_blocks, teacher_blocks):
+            k   = min(int(0.1*len(X_seq)), 100)     # 10 % or 100 samples
+            X_blocks.append(X_seq[k:, :])
+            Y_blocks.append(Y_seq[k:, :])
+        X = np.vstack(X_blocks)
+        Y = np.vstack(Y_blocks)
+        #self.W_out = Y.T @ np.linalg.pinv(X.T)   
 
-        # remember the last state for later:
-        self.laststate = states[-1, :]
-        self.lastinput = inputs[-1, :]
-        self.lastoutput = teachers_scaled[-1, :]
+        reg = self.ridge_lambda
+        XtX = X.T @ X + reg * np.eye(X.shape[1])
+        self.W_out = (np.linalg.solve(XtX, X.T @ Y)).T
+       
 
-        # optionally visualize the collected states
+
+        
+        
+
+
+        # ────────────────────────────────────────────────────────────────
+        # 3) Optional visualisation (unchanged)
+        # ────────────────────────────────────────────────────────────────
         if inspect:
             from matplotlib import pyplot as plt
-            # (^-- we depend on matplotlib only if this option is used)
-            plt.figure(
-                figsize=(states.shape[0] * 0.0025, states.shape[1] * 0.01))
-            plt.imshow(extended_states.T, aspect='auto',
-                       interpolation='nearest')
+            plt.figure(figsize=(extended_states.shape[0] * 0.0025,
+                                extended_states.shape[1] * 0.01))
+            plt.imshow(extended_states.T, aspect='auto', interpolation='nearest')
             plt.colorbar()
 
+        # ────────────────────────────────────────────────────────────────
+        # 4) Training error & per-sequence predictions (unchanged maths)
+        # ────────────────────────────────────────────────────────────────
         if not self.silent:
             print("training error:")
-        # apply learned weights to the collected states:
-        pred_train = self._unscale_teacher(self.out_activation(
-            np.dot(extended_states, self.W_out.T)))
-        if not self.silent:
-            print(np.sqrt(np.mean((pred_train - outputs)**2)))
 
-        self.reservoir_states = [] #reset tracked reservoir_states
-        return pred_train
+        start = 0
+        for X_seq, Y_seq in zip(extended_blocks, teacher_blocks):
+            pred_seq = self._unscale_teacher(self.out_activation(
+                         np.dot(X_seq, self.W_out.T)))
+            pred_blocks.append(pred_seq)
 
+            if not self.silent:
+                err = np.sqrt(np.mean((pred_seq - self._unscale_teacher(Y_seq))**2))
+                #print(err)
+
+            start += X_seq.shape[0]
+
+        self.reservoir_states = []  # reset tracker
+        return pred_blocks[0] if single_sequence else pred_blocks
+
+
+    
     def predict(self, inputs, continuation=True):
         """
         Apply the learned weights to the network's reactions to new input.
 
-        Args:
-            inputs: array of dimensions (N_test_samples x n_inputs)
-            continuation: if True, start the network from the last training state
+        Parameters
+        ----------
+        inputs : ndarray (T × n_inputs)           – original usage
+                 list / tuple of ndarray          – several test trajectories
+        continuation : bool, optional
+            *Single-sequence case*  – if True, start from the last training state;
+            *Multi-sequence case*   – the first sequence uses the last training
+            state, all following ones start from zeros.
 
-        Returns:
-            Array of output activations
+        Returns
+        -------
+        ndarray                  – single sequence (legacy behaviour)
+        list of ndarray          – multiple sequences (one per input array)
         """
-        if inputs.ndim < 2:
-            inputs = np.reshape(inputs, (len(inputs), -1))
-        n_samples = inputs.shape[0]
 
-        if continuation:
-            laststate = self.laststate
-            lastinput = self.lastinput
-            lastoutput = self.lastoutput
-        else:
-            laststate = np.zeros(self.n_reservoir)
-            lastinput = np.zeros(self.n_inputs)
-            lastoutput = np.zeros(self.n_outputs)
+        # ------------------------------------------------------------
+        # 0) Normalise interface
+        # ------------------------------------------------------------
+        single_sequence = not isinstance(inputs, (list, tuple))
+        if single_sequence:
+            inputs = [inputs]                      # wrap in list
 
-        inputs = np.vstack([lastinput, self._scale_inputs(inputs)])
-        states = np.vstack(
-            [laststate, np.zeros((n_samples, self.n_reservoir))])
-        outputs = np.vstack(
-            [lastoutput, np.zeros((n_samples, self.n_outputs))])
+        preds = []                                 # store outputs per sequence
+        first_seq = True
 
-        for n in range(n_samples):
-            states[
-                n + 1, :] = self._update(states[n, :], inputs[n + 1, :], outputs[n, :])
-            outputs[n + 1, :] = self.out_activation(np.dot(self.W_out,
-                                                           np.concatenate([states[n + 1, :], inputs[n + 1, :]])))
+        # ------------------------------------------------------------
+        # 1) Loop over each independent sequence
+        # ------------------------------------------------------------
+        for in_raw in inputs:
 
-        return self._unscale_teacher(self.out_activation(outputs[1:]))
+            # reshape to 2-D if needed
+            if in_raw.ndim < 2:
+                in_raw = np.reshape(in_raw, (len(in_raw), -1))
+            n_samples = in_raw.shape[0]
+
+            # choose starting state/input/output
+            if continuation and first_seq:
+                laststate  = self.laststate
+                lastinput  = self.lastinput
+                lastoutput = self.lastoutput
+            else:
+                laststate  = np.zeros(self.n_reservoir)
+                lastinput  = np.zeros(self.n_inputs)
+                lastoutput = np.zeros(self.n_outputs)
+
+            # prepend last input, scale new inputs
+            in_scaled = self._scale_inputs(in_raw)
+            inputs_aug = np.vstack([lastinput, in_scaled])
+
+            states  = np.vstack([laststate,
+                                 np.zeros((n_samples, self.n_reservoir))])
+            outputs = np.vstack([lastoutput,
+                                 np.zeros((n_samples, self.n_outputs))])
+
+            # --------------------------------------------------------
+            # 2) Roll reservoir and compute read-out
+            # --------------------------------------------------------
+            for n in range(n_samples):
+                states[n + 1, :] = self._update(states[n, :],
+                                                inputs_aug[n + 1, :],
+                                                outputs[n, :])
+                
+                vec = np.concatenate([states[n+1], inputs_aug[n+1], [1.0]])
+                outputs[n+1] = self.out_activation(self.W_out @ vec)
+                
+                #outputs[n + 1, :] = self.out_activation(
+                #    np.dot(self.W_out,
+                #           np.concatenate([states[n + 1, :],
+                #                           inputs_aug[n + 1, :]])))
+
+            # remove prepended row, unscale, store prediction
+            preds.append(self._unscale_teacher(outputs[1:]))
+            #preds.append(self._unscale_teacher(self.out_activation(outputs[1:])))
+
+            first_seq = False                      # subsequent seqs start from zero
+
+        # ------------------------------------------------------------
+        # 3) Return legacy or list format
+        # ------------------------------------------------------------
+        
+        # ------------------------------------------------------------
+        # 2) remember latest state/input/output  <<< NEW
+        # ------------------------------------------------------------
+        self.laststate  = states[-1, :].copy()
+        self.lastinput  = inputs_aug[-1, :].copy()
+        self.lastoutput = outputs[-1, :].copy()
+        
+        return preds[0] if single_sequence else preds
+
     def collect_reservoir_states(self, inputs):
         """
         Pass input points through the ESN reservoir and collect the reservoir states.
@@ -290,6 +426,5 @@ class ESN():
             reservoir_states[n, :] = reservoir_state  # Store the state for each input point
 
         return reservoir_states
-
 
 

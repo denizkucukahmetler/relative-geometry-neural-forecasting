@@ -42,10 +42,8 @@ class ESNModel(BaseModel):
         self.train_params = hyperparams["train_params"]
         self.prediction_length = hyperparams["prediction_length"]
         self.random_state = hyperparams["random_state"]
-        # ────────────────────────────────────────────────────────────
-        # Retrieve the new hyperparameter (default to 1 if missing)
+
         self.num_trajectories = hyperparams.get("num_trajectories", 1)
-        # ────────────────────────────────────────────────────────────
 
         self.leaking_rate     = hyperparams.get("leaking_rate", 0.4)
         self.ridge_lambda     = hyperparams.get("ridge_lambda", 1e-4)
@@ -63,7 +61,6 @@ class ESNModel(BaseModel):
             teacher_forcing=self.teacher_forcing,
             random_state=self.random_state,
             silent=False,
-            # NEW:
             leaking_rate=self.leaking_rate,
             ridge_lambda=self.ridge_lambda,
             feedback_scaling=self.feedback_scaling,

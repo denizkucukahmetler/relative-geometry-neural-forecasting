@@ -149,11 +149,9 @@ class ExperimentManager:
         import matplotlib.pyplot as plt
         from sklearn.decomposition import PCA
         from sklearn.manifold import TSNE
+        from umap import UMAP
 
-        try:
-            import umap  # optional
-        except Exception:
-            umap = None
+
 
         if n_components < 2:
             raise ValueError("n_components must be ≥ 2")
@@ -184,9 +182,8 @@ class ExperimentManager:
             "raw": lambda: None,
             "pca": lambda: PCA(n_components=n_components),
             "tsne": lambda: TSNE(n_components=n_components, random_state=42, init="random"),
+            "umap":lambda: umap.UMAP(n_components=n_components, random_state=42)
         }
-        if umap is not None:
-            reducers["umap"] = lambda: umap.UMAP(n_components=n_components, random_state=42)
 
         import colorsys
         from matplotlib import colors as mcolors

@@ -171,7 +171,9 @@ class ConfigManager:
                     'batch_size': 64,
                     'epochs': 0,
                     'model_type': 'NoneModel',
-                    'lr_decay': True
+                    'lr_decay': True,
+                    'stitching': False,
+                    'stitching_anchor_nr': 32,
                 }),
             }),  
 
@@ -202,7 +204,9 @@ class ConfigManager:
                     'batch_size': 64,
                     'epochs': 200,
                     'model_type': 'MLP',
-                    'lr_decay': True
+                    'lr_decay': True,
+                    'stitching': False,
+                    'stitching_anchor_nr': 32,
                 }),
             }),  
 
@@ -239,7 +243,9 @@ class ConfigManager:
                     'batch_size': 64,
                     'epochs': 200,
                     'model_type': 'Transformer',
-                    'lr_decay': True
+                    'lr_decay': True,
+                    'stitching': False,
+                    'stitching_anchor_nr': 32,
                 }),
             }),
 
@@ -273,7 +279,9 @@ class ConfigManager:
                     'batch_size': 64,
                     'epochs': 200,
                     'model_type': 'RNN',
-                    'lr_decay': True
+                    'lr_decay': True,
+                    'stitching': False,
+                    'stitching_anchor_nr': 32,
                 }),
             }),
             
@@ -309,7 +317,9 @@ class ConfigManager:
                     'epochs': 200,
                     'model_type': 'RNN',
                     'lr_decay': False,
-                    'teacher_force_prob': 0.5 #None => no teacher forcing, float e.g. 0.5 for 50% teacher forceing probabilty; linear decrase of 0.1=10% each epoch
+                    'teacher_force_prob': 0.5 ,#None => no teacher forcing, float e.g. 0.5 for 50% teacher forceing probabilty; linear decrase of 0.1=10% each epoch,
+                    'stitching': False,
+                    'stitching_anchor_nr': 32,
                 }),
             }),
 
@@ -345,7 +355,9 @@ class ConfigManager:
                     'lr': 0.001,
                     'batch_size': 1,
                     'epochs': 1,
-                    'lr_decay': True
+                    'lr_decay': True,
+                    'stitching': False,
+                    'stitching_anchor_nr': 32,
                 })
             }),
 
@@ -375,7 +387,9 @@ class ConfigManager:
                     'lr': 0.001,
                     'batch_size': 256,
                     'epochs': 50,
-                    'lr_decay': True
+                    'lr_decay': True,
+                    'stitching': False,
+                    'stitching_anchor_nr': 32,
                 }),
                 'ode_params': {'in_out_dim': 90,
                     'hidden_dim': 128
@@ -413,7 +427,9 @@ class ConfigManager:
                     'batch_size': 128,
                     'epochs': 200,
                     'model_type': 'NODE',
-                    'lr_decay': True
+                    'lr_decay': True,
+                    'stitching': False,
+                    'stitching_anchor_nr': 32,
                 }),
                 'ode_params': {'in_out_dim': 128,
                     'hidden_dim': 64
@@ -451,7 +467,9 @@ class ConfigManager:
                     'batch_size': 256,
                     'epochs': 200,
                     'model_type': 'NODE',
-                    'lr_decay': True
+                    'lr_decay': True,
+                    'stitching': False,
+                    'stitching_anchor_nr': 32,
                 }),
                 'ode_params': {'in_out_dim': 512,
                     'hidden_dim': 256
@@ -486,7 +504,9 @@ class ConfigManager:
                     'lr': 0.001,
                     'batch_size': 256,
                     'epochs': 50,
-                    'lr_decay': True
+                    'lr_decay': True,
+                    'stitching': False,
+                    'stitching_anchor_nr': 32,
                 }),
                 'ode_params': {'in_out_dim': 90,
                     'hidden_dim': 128
@@ -523,7 +543,9 @@ class ConfigManager:
                     'batch_size': 128,
                     'epochs': 200,
                     'model_type': 'Koopman',
-                    'lr_decay': True
+                    'lr_decay': True,
+                    'stitching': False,
+                    'stitching_anchor_nr': 32,
                 }),
                 'ode_params': {'in_out_dim': 128,
                     'hidden_dim': 64
@@ -561,7 +583,9 @@ class ConfigManager:
                     'batch_size': 64,
                     'epochs': 200,
                     'model_type': 'Koopman',
-                    'lr_decay': True
+                    'lr_decay': True, 
+                    'stitching': False,
+                    'stitching_anchor_nr': 32,
                 }),
                 'ode_params': {'in_out_dim': 448,
                     'hidden_dim': 256
@@ -602,7 +626,9 @@ class ConfigManager:
                         'batch_size': 64,
                         'epochs': 200,
                         'model_type': 'MLP',
-                        'lr_decay': True
+                        'lr_decay': True,
+                        'stitching': False,
+                        'stitching_anchor_nr': 32,
                     }),
                 }),
 
@@ -636,7 +662,9 @@ class ConfigManager:
                         'batch_size': 64,
                         'epochs': 200,
                         'model_type': 'Transformer',
-                        'lr_decay': True
+                        'lr_decay': True,
+                        'stitching': False,
+                        'stitching_anchor_nr': 32,
                     }),
                 }),
 
@@ -669,7 +697,9 @@ class ConfigManager:
                         'batch_size': 64,
                         'epochs': 200,
                         'model_type': 'RNN',
-                        'lr_decay': True
+                        'lr_decay': True,   
+                        'stitching': False,
+                        'stitching_anchor_nr': 32,
                     }),
                 }),
             ])

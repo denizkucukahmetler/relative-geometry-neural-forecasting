@@ -170,7 +170,6 @@ class TrainingManager:
         base_seed = torch.initial_seed()
         last_model_type = None
         repeat_count = 0
-        print("trainer_params[0]['stitching']:", trainer_params[0]['stitching'])
         if trainer_params[0]['stitching']:
             K = trainer_params[0]['stitching_anchor_nr']
             rng = random.Random(42)
