@@ -1,0 +1,7 @@
+system,n_reservoir,spectral_radius,sparsity,ridge_lambda
+Lorenz,2500,1.1,0.0,1e-06
+Spiral,2500,1.1,0.0,1e-06
+Hopf,2500,1.1,0.0,1e-06
+Random Skew,32,1.1,0.0,1e-07
+POD,32,1.1,0.0,1e-07
+Double Pendulum,3000,1.1,0.1,0.03
