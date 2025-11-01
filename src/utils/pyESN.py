@@ -128,8 +128,6 @@ class ESN():
 
         candidate = np.tanh(preactivation)
         candidate += self.noise * (self.random_state_.rand(self.n_reservoir) - 0.5)
-
-        # NEW: leaky integration
         new_state = (1.0 - self.leaking_rate) * state + self.leaking_rate * candidate
 
         self.reservoir_states.append(new_state)
@@ -177,9 +175,7 @@ class ESN():
             Model output on the training data.  For many sequences a list
             of arrays is returned (one per sequence); otherwise a single array.
         """
-        # ────────────────────────────────────────────────────────────────
-        # 0) Normalise interface ─ turn lone arrays into one-element lists
-        # ────────────────────────────────────────────────────────────────
+       
         single_sequence = not isinstance(inputs, (list, tuple))
         if single_sequence:
             inputs, outputs = [inputs], [outputs]
@@ -189,9 +185,6 @@ class ESN():
 
         extended_blocks, teacher_blocks, pred_blocks = [], [], []
 
-        # ────────────────────────────────────────────────────────────────
-        # 1) Harvest states for *each* trajectory, starting from zero
-        # ────────────────────────────────────────────────────────────────
         for in_raw, out_raw in zip(inputs, outputs):
 
             # transform any vectors of shape (x,) into (x,1):
@@ -212,14 +205,10 @@ class ESN():
                                             inputs_scaled[n, :],
                                             teachers_scaled[n - 1, :])
 
-            # include the raw inputs:
-            #extended_states = np.hstack((states, inputs_scaled))
-            #extended_states = np.hstack((states[1:], inputs_scaled[1:]))   # <-- fix
-            n_eff = states.shape[0] - 1 # = len(states[1:]) 
-            #extended_states = np.hstack([states[1:], inputs_scaled[1:], np.ones((n_eff, 1))])
+           
+            n_eff = states.shape[0] - 1 
             
-            # include the raw inputs + constant bias
-            n_eff = states.shape[0] - 1            # rows kept after t = 0
+            n_eff = states.shape[0] - 1         
             extended_states = np.hstack([
                 states[1:],               # reservoir states
                 inputs_scaled[1:],        # current inputs
@@ -228,17 +217,12 @@ class ESN():
 
 
             extended_blocks.append(extended_states)
-            #teacher_blocks.append(teachers_scaled)
-            teacher_blocks.append(teachers_scaled[1:])                     # <-- fix
+            teacher_blocks.append(teachers_scaled[1:])                  
 
-            # remember last state/input/output of *this* trajectory
             self.laststate  = states[-1, :].copy()
             self.lastinput  = in_raw[-1, :].copy()
             self.lastoutput = teachers_scaled[-1, :].copy()
 
-        # ────────────────────────────────────────────────────────────────
-        # 2) Stack all trajectories vertically → solve one linear system
-        # ────────────────────────────────────────────────────────────────
         extended_states = np.vstack(extended_blocks)
         teachers_scaled = np.vstack(teacher_blocks)
 
@@ -260,21 +244,12 @@ class ESN():
             Y_blocks.append(Y_seq[k:, :])
         X = np.vstack(X_blocks)
         Y = np.vstack(Y_blocks)
-        #self.W_out = Y.T @ np.linalg.pinv(X.T)   
+        
 
         reg = self.ridge_lambda
         XtX = X.T @ X + reg * np.eye(X.shape[1])
         self.W_out = (np.linalg.solve(XtX, X.T @ Y)).T
-       
 
-
-        
-        
-
-
-        # ────────────────────────────────────────────────────────────────
-        # 3) Optional visualisation (unchanged)
-        # ────────────────────────────────────────────────────────────────
         if inspect:
             from matplotlib import pyplot as plt
             plt.figure(figsize=(extended_states.shape[0] * 0.0025,
@@ -282,9 +257,6 @@ class ESN():
             plt.imshow(extended_states.T, aspect='auto', interpolation='nearest')
             plt.colorbar()
 
-        # ────────────────────────────────────────────────────────────────
-        # 4) Training error & per-sequence predictions (unchanged maths)
-        # ────────────────────────────────────────────────────────────────
         if not self.silent:
             print("training error:")
 
@@ -324,9 +296,6 @@ class ESN():
         list of ndarray          – multiple sequences (one per input array)
         """
 
-        # ------------------------------------------------------------
-        # 0) Normalise interface
-        # ------------------------------------------------------------
         single_sequence = not isinstance(inputs, (list, tuple))
         if single_sequence:
             inputs = [inputs]                      # wrap in list
@@ -334,9 +303,6 @@ class ESN():
         preds = []                                 # store outputs per sequence
         first_seq = True
 
-        # ------------------------------------------------------------
-        # 1) Loop over each independent sequence
-        # ------------------------------------------------------------
         for in_raw in inputs:
 
             # reshape to 2-D if needed
@@ -363,9 +329,6 @@ class ESN():
             outputs = np.vstack([lastoutput,
                                  np.zeros((n_samples, self.n_outputs))])
 
-            # --------------------------------------------------------
-            # 2) Roll reservoir and compute read-out
-            # --------------------------------------------------------
             for n in range(n_samples):
                 states[n + 1, :] = self._update(states[n, :],
                                                 inputs_aug[n + 1, :],
@@ -374,10 +337,6 @@ class ESN():
                 vec = np.concatenate([states[n+1], inputs_aug[n+1], [1.0]])
                 outputs[n+1] = self.out_activation(self.W_out @ vec)
                 
-                #outputs[n + 1, :] = self.out_activation(
-                #    np.dot(self.W_out,
-                #           np.concatenate([states[n + 1, :],
-                #                           inputs_aug[n + 1, :]])))
 
             # remove prepended row, unscale, store prediction
             preds.append(self._unscale_teacher(outputs[1:]))
@@ -385,13 +344,6 @@ class ESN():
 
             first_seq = False                      # subsequent seqs start from zero
 
-        # ------------------------------------------------------------
-        # 3) Return legacy or list format
-        # ------------------------------------------------------------
-        
-        # ------------------------------------------------------------
-        # 2) remember latest state/input/output  <<< NEW
-        # ------------------------------------------------------------
         self.laststate  = states[-1, :].copy()
         self.lastinput  = inputs_aug[-1, :].copy()
         self.lastoutput = outputs[-1, :].copy()
