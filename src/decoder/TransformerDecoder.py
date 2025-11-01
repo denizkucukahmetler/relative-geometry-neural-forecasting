@@ -2,8 +2,7 @@ import torch # Make sure torch is imported
 import torch.nn as nn
 import torch.nn.init as init
 from src.model.model_interface import BaseDecoder, DecoderParams
-from src.utils.PositionalEncoding import PositionalEncoding # Cited: REU-ML-Summer-Project-24-new_datasets-1may/src/utils/PositionalEncoding.py
-
+from src.utils.PositionalEncoding import PositionalEncoding 
 
 class TransformerDecoderParams(DecoderParams):
     input_dim: int

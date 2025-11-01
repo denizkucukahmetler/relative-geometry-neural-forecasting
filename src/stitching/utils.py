@@ -260,7 +260,7 @@ def plot_grouped_similarity(
     ax.set_yticklabels(pretty, rotation=0)
     plt.title("Average Similarity (seeds collapsed by base model)")
     plt.tight_layout()
-    plt.savefig("/home/max/Coding/Python/MPI_Research/git/REU-ML-Summer-Project-24/results/abs_all_20epochs/new_heatmap.png")
+    plt.savefig("new_heatmap.png")
     plt.close()
     return grouped_sim, clusters, Z
 

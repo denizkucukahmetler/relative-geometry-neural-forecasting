@@ -29,26 +29,22 @@ from src.config_manager import ConfigManager
 plt.switch_backend("Agg")  # non-interactive backend
 
 
-# ------------------------------------------------------------------ #
 def _list_dirs(path: str | Path) -> list[str]:
     return [str(p) for p in Path(path).iterdir() if p.is_dir()]
 
 
-# ------------------------------------------------------------------ #
 class ExperimentManager:
     def __init__(self, config_manager: ConfigManager, device: str):
         self.config_manager = config_manager
         self.device = device
         self._data_handlers: dict[str, Any] = {}
 
-    # ------------ data-handler cache -------------------------------- #
     def _get_data_handler(self, exp: str):
         if exp not in self._data_handlers:
             cfg = self.config_manager.get_current_dataset_config()
             self._data_handlers[exp] = cfg["data_handler_class"](cfg, exp, True)
         return self._data_handlers[exp]
 
-    # ------------ load models & datasets ---------------------------- #
     def get_models_and_dataset_from_experiment(
         self, exp: str
     ) -> Tuple[list[BaseModel], list[Any]]:
@@ -73,7 +69,6 @@ class ExperimentManager:
         datasets = [split[2] for split in datasets]  # take test split
         return models, datasets
 
-    # ------------ wrappers ------------------------------------------ #
     def evalute_latent_spaces_exp(self, exp: str, points: int, anchors: int, random_anchors: bool = False):
         m, d = self.get_models_and_dataset_from_experiment(exp)
         return evaluate_models(
@@ -193,9 +188,6 @@ class ExperimentManager:
         if umap is not None:
             reducers["umap"] = lambda: umap.UMAP(n_components=n_components, random_state=42)
 
-        # -------------------------------------------------------------------------
-        # NEW: Family + shade colormap (matches your other script exactly)
-        # -------------------------------------------------------------------------
         import colorsys
         from matplotlib import colors as mcolors
 
@@ -274,7 +266,6 @@ class ExperimentManager:
             return label_to_color, order_index
 
         LABEL_TO_COLOR, LABEL_ORDER_INDEX = build_colormap(DESIRED_ORDER)
-        # -------------------------------------------------------------------------
 
         csv_rows: list[list[Any]] = []
 

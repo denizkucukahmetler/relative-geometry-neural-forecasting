@@ -131,7 +131,7 @@ class TrainingManager:
         trainer_params = [model_param['train_params'] for model_param in model_params]
         from pathlib import Path
 
-        directories = [Path(f"results/{experiment_name}/{model_param['model_name']}/") for model_param in model_params] #deniz
+        directories = [Path(f"results/{experiment_name}/{model_param['model_name']}/") for model_param in model_params] 
 
         for directory in directories:
             if directory.is_dir():

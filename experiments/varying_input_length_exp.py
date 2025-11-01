@@ -262,7 +262,7 @@ for seed in SEEDS:
                 mc["experiment_tag"]=TAG
 
             else:
-                print("NONE MODEL or MODEL UNKNOWN:",model)
+                print("MODEL UNKNOWN:",model)
                 
 
             MODEL_LIST.append([model, 5])
