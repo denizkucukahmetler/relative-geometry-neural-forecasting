@@ -122,14 +122,21 @@ All scripts are in the `experiments/` directory. Unless otherwise noted, they us
 
 
 ### Benchmarking Models:
-We train all of our 11 models and 7 datasets using 5 seeds and find alignment vs performance during training using:
+We train 11 models on 7 datasets using 5 random seeds to measure alignment versus performance during training.
+
+Run training with:
+
 ```
 experiments/train_best_models.py
 ```
-Benchmark on the test set and visualise absolute and relative latent spaces:
+During training, representational similarity scores (RSS) and performance metrics are saved to:
+loss_log.csv
+
+To benchmark on the test set and visualize absolute and relative latent spaces, run:
 ```
 experiments/test_best_models.py
 ```
+where the benchmarks.json includes the benchmark performances (MSE, RMSE, MAE) are recorded. The cross-modal similarity is recorded in similarities_cosine.csv, similarities_top1.csv and similarities_rank.csv
 
 ### Noise Experiment:
 Evaluate robustness of relative geometry under varying observational noise:
