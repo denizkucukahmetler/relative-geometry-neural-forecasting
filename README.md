@@ -1,5 +1,5 @@
 # Relative-geometry-neural-forecasting
-This repository contains the implementation of the paper "Relative Geometry of Neural Forecasting Models:  Linking Accuracy and Alignment in Learned Dynamics". 
+This repository contains the implementation of the paper "Relative Geometry of Neural Forecasting Models:  Linking Accuracy and Alignment in Learned Latent Geometry". 
 
 We investigated latent spaces of various encoder-decoder architectures to explore what embeddings are learned when models are trained on dynamic (and chaotic) systems like the Lorenz Attractor. To compare these latent spaces, we used **relative embeddings** as proposed by Moschella et al. (2023).
 
