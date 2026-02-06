@@ -104,7 +104,7 @@ experiment_manager.benchmark_models_exp(experiment_name) #call the benchmarking 
 
 # Reproducing Experiments 
 
-Details for reproducing the results of the paper **"Relative Geometry of Neural Forecasting Models: Linking Accuracy and Alignment in Learned Dynamics"**. 
+Details for reproducing the results of the paper **"Relative Geometry of Neural Forecasting Models: Linking Accuracy and Alignment in Learned Latent Geometry"**. 
 
 
 ## Metadata
